@@ -1,0 +1,55 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Allow users to read their own profile data.
+    // Allow any authenticated user to create their own profile.
+    match /{collection}/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isUser(userId);
+      allow update: if isUser(userId);
+      allow delete: if isUser(userId);
+    }
+
+    // Rules for matches
+    match /matches/{matchId} {
+      // Allow read if user is the mentor or the mentee
+      allow read: if isSignedIn() && (resource.data.mentorId == request.auth.uid || resource.data.menteeId == request.auth.uid);
+      
+      // Allow create for any signed-in user
+      allow create: if isSignedIn();
+      
+      // Allow update (e.g., status change) if user is the mentor or mentee
+      allow update: if isSignedIn() && (resource.data.mentorId == request.auth.uid || resource.data.menteeId == request.auth.uid);
+
+      // Rules for messages subcollection
+      match /messages/{messageId} {
+        // Allow read/create if user is part of the match
+        allow read, create: if isSignedIn() && (get(/databases/$(database)/documents/matches/$(matchId)).data.mentorId == request.auth.uid || get(/databases/$(database)/documents/matches/$(matchId)).data.menteeId == request.auth.uid);
+      }
+    }
+
+    // Allow any authenticated user to create notifications
+    match /notifications/{notificationId} {
+        allow create: if isSignedIn();
+        allow read, update: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+    
+    // Allow any authenticated user to read resources, but only signed in users can add them
+    match /resources/{resourceId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+    }
+  }
+}

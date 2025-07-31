@@ -25,8 +25,10 @@ export default function RootLayout({
       <body className="antialiased font-body" suppressHydrationWarning={true}>
         <Providers>
           {children}
+          <Toaster />
         </Providers>
       </body>
     </html>
   );
 }
+
